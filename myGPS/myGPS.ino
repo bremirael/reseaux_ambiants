@@ -1,4 +1,6 @@
 #include <LGPS.h>
+#include <LBT.h>
+#include <LBTServer.h>
 
 gpsSentenceInfoStruct info;
 char buff[256];
@@ -45,7 +47,7 @@ static double getIntNumber(const char *s)
   return rev; 
 }
 
-void parseGPGGA(const char* GPGGAstr)
+String parseGPGGA(const char* GPGGAstr)
 {
   /* Refer to http://www.gpsinformation.org/dale/nmea.htm#GGA
    * Sample data: $GPGGA,123519,4807.038,N,01131.000,E,1,08,0.9,545.4,M,46.9,M,,*47
@@ -76,26 +78,13 @@ void parseGPGGA(const char* GPGGAstr)
   double longitude;
   int tmp, hour, minute, second, num ;
   if(GPGGAstr[0] == '$')
-  {
-    tmp = getComma(1, GPGGAstr);
-    hour     = (GPGGAstr[tmp + 0] - '0') * 10 + (GPGGAstr[tmp + 1] - '0');
-    minute   = (GPGGAstr[tmp + 2] - '0') * 10 + (GPGGAstr[tmp + 3] - '0');
-    second    = (GPGGAstr[tmp + 4] - '0') * 10 + (GPGGAstr[tmp + 5] - '0');
-    
-//    sprintf(buff, "UTC timer %2d-%2d-%2d", hour, minute, second);
-//    Serial.println(buff);
-    
+  { 
     tmp = getComma(2, GPGGAstr);
-    latitude = getDoubleNumber(&GPGGAstr[tmp]);
+    latitude = getDoubleNumber(&GPGGAstr[tmp])/100;
     tmp = getComma(4, GPGGAstr);
-    longitude = getDoubleNumber(&GPGGAstr[tmp]);
-    sprintf(buff, "latitude = %10.4f, longitude = %10.4f", latitude, longitude);
-    Serial.println(buff); 
-    
-//    tmp = getComma(7, GPGGAstr);
-//    num = getIntNumber(&GPGGAstr[tmp]);    
-//    sprintf(buff, "satellites number = %d", num);
-//    Serial.println(buff); 
+    longitude = getDoubleNumber(&GPGGAstr[tmp])/100;
+    sprintf(buff, "%10.8f,%10.8f", latitude, longitude);
+    return buff;  
   }
   else
   {
@@ -109,13 +98,51 @@ void setup() {
   LGPS.powerOn();
   //Serial.println("LGPS Power on, and waiting ..."); 
   delay(3000);
+  
+  if(!LBTServer.begin((uint8_t*)"BT_gael_b"))
+  {
+    Serial.println("Fail to start BT.");
+    return;
+  }
+  Serial.println("BT server is started.\nPour avoir les coordonnées GPS de la carte Linklt, tapez 'GPS'");
 }
 
 void loop() {
   // put your main code here, to run repeatedly:
   //Serial.println("LGPS loop"); 
   LGPS.getData(&info);
-  Serial.println((char*)info.GPGGA); 
-  //parseGPGGA((const char*)info.GPGGA);
+  //Serial.println((char*)info.GPGGA); 
+  String coord = parseGPGGA((const char*)info.GPGGA);
+  String delimiter = ",";
+  String Latitude = coord.substring(0,coord.indexOf(delimiter));
+  String Longitude = coord.substring(coord.indexOf(delimiter)+1);
   delay(2000);
+
+  uint8_t buf[64];
+  String bytesRead;
+  if(LBTServer.connected())
+  {
+  LBTServer.write("Pour avoir les coordonnées GPS de la carte Linklt, tapez 'GPS'");
+  while(true)
+   {
+    bytesRead = LBTServer.readString();
+    if(bytesRead == "GPS"){
+    Serial.print("\nLatitude : "+Latitude+"\n"+"Longitude : "+Longitude);
+    LBTServer.print("\nLatitude : "+Latitude+"\n"+"Longitude : "+Longitude);
+    } else if (bytesRead == ""){
+      
+    } else {
+      Serial.write("Commande inconnue");
+      LBTServer.write("Commande inconnue");
+      delay(1000); 
+    }
+    
+   }
+   delay(100);
+  }
+else
+{
+ LBTServer.accept(5);
+ Serial.println("Aucune personne connectée");
+}
 }

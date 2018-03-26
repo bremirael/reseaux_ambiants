@@ -12,7 +12,7 @@ void setup()
   LGPS.powerOn();
   //Serial.println("LGPS Power on, and waiting ..."); 
   
-  if(!LBTServer.begin((uint8_t*)"Bluetooth_Gael_B"))
+  if(!LBTServer.begin((uint8_t*)"Bluetooth_Gael_B_2"))
   {
     Serial.println("Fail to start BT.");
     return;
@@ -22,8 +22,8 @@ void setup()
 
 void loop() 
 {
-  //uint8_t buf[64];
-  const char * buf; 
+  uint8_t buf[64];
+  //char * buff = ''; 
   int bytesRead;
 
   if(LBTServer.connected()) 
@@ -34,12 +34,14 @@ void loop()
 
     while(true)
     {
-      //bytesRead = LBTServer.readBytes(buf, 64);
-//      if(!bytesRead)
-//        break;
-        
-      Serial.write(buf, (char*)info.GPGGA);
-      LBTServer.write(buf, (char*)info.GPGGA);
+      bytesRead = LBTServer.readBytes(buf, 64);
+      if(!bytesRead)
+        break;
+
+      Serial.write(buf, bytesRead);
+      LBTServer.write(buff, bytesRead);
+      //Serial.write(buff, (char*)info.GPGGA);
+      LBTServer.write(, (char*)info.GPGGA);
     }
    delay(100);
   }
